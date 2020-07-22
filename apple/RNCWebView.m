@@ -514,12 +514,37 @@ static NSDictionary* customCertificatesForHost;
         return;
     }
     if (request.URL.host) {
-        [_webView loadRequest:request];
+        if (@available(iOS 11, *)) {
+          [_webView loadRequest:request];
+        } else {
+          [self.webView loadRequest:[self fixRequestCookie:request]];
+        }
     }
     else {
         NSURL* readAccessUrl = _allowingReadAccessToURL ? [RCTConvert NSURL:_allowingReadAccessToURL] : request.URL;
         [_webView loadFileURL:request.URL allowingReadAccessToURL:readAccessUrl];
     }
+}
+
+/**
+ 修复打开链接Cookie丢失问题
+
+ @param request 请求
+ @return 一个fixedRequest
+ */
+- (NSURLRequest *)fixRequestCookie:(NSURLRequest *)request {
+    NSMutableURLRequest *fixedRequest;
+    if ([request isKindOfClass:[NSMutableURLRequest class]]) {
+        fixedRequest = (NSMutableURLRequest *) request;
+    } else {
+        fixedRequest = request.mutableCopy;
+    }
+    // 防止Cookie丢失
+    NSArray *cookies = [NSHTTPCookieStorage sharedHTTPCookieStorage].cookies;
+    NSDictionary *cookieDict = [NSHTTPCookie requestHeaderFieldsWithCookies:cookies];
+    fixedRequest.allHTTPHeaderFields = cookieDict;
+
+    return fixedRequest;
 }
 
 #if !TARGET_OS_OSX
