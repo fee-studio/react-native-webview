@@ -190,8 +190,12 @@ static NSDictionary* customCertificatesForHost;
  */
 - (WKWebView *)webView:(WKWebView *)webView createWebViewWithConfiguration:(WKWebViewConfiguration *)configuration forNavigationAction:(WKNavigationAction *)navigationAction windowFeatures:(WKWindowFeatures *)windowFeatures
 {
-  if (!navigationAction.targetFrame.isMainFrame) {
-    [webView loadRequest:navigationAction.request];
+  if (!navigationAction.targetFrame.isMainFrame) {    
+    if (@available(iOS 11, *)) {
+      [webView loadRequest:navigationAction.request];
+    } else {      
+      [webView loadRequest:[self syncCookies:navigationAction.request]];
+    }
   }
   return nil;
 }
@@ -517,7 +521,7 @@ static NSDictionary* customCertificatesForHost;
         if (@available(iOS 11, *)) {
           [_webView loadRequest:request];
         } else {
-          [self.webView loadRequest:[self fixRequestCookie:request]];
+          [_webView loadRequest:[self syncCookies:request]];
         }
     }
     else {
@@ -527,19 +531,18 @@ static NSDictionary* customCertificatesForHost;
 }
 
 /**
- 修复打开链接Cookie丢失问题
+ sync cookies from NSHTTPCookieStorage
 
- @param request 请求
- @return 一个fixedRequest
+ @param request original reqeust 
+ @return new request with cookies
  */
-- (NSURLRequest *)fixRequestCookie:(NSURLRequest *)request {
+- (NSURLRequest *)syncCookies:(NSURLRequest *)request {
     NSMutableURLRequest *fixedRequest;
     if ([request isKindOfClass:[NSMutableURLRequest class]]) {
         fixedRequest = (NSMutableURLRequest *) request;
     } else {
         fixedRequest = request.mutableCopy;
-    }
-    // 防止Cookie丢失
+    }    
     NSArray *cookies = [NSHTTPCookieStorage sharedHTTPCookieStorage].cookies;
     NSDictionary *cookieDict = [NSHTTPCookie requestHeaderFieldsWithCookies:cookies];
     fixedRequest.allHTTPHeaderFields = cookieDict;
@@ -1165,8 +1168,12 @@ static NSDictionary* customCertificatesForHost;
    */
   NSURLRequest *request = [self requestForSource:self.source];
 
-  if (request.URL && !_webView.URL.absoluteString.length) {
-    [_webView loadRequest:request];
+  if (request.URL && !_webView.URL.absoluteString.length) {    
+    if (@available(iOS 11, *)) {
+      [_webView loadRequest:request];
+    } else {
+      [_webView loadRequest:[self syncCookies:request]];
+    }
   } else {
     [_webView reload];
   }
